@@ -7,7 +7,7 @@ output:
 
 #1. Load packages
 
-```{r load_packages}
+```{r load_packages, message=F}
 rm(list=ls())
 library(tidyverse)
 library(data.table)
@@ -16,9 +16,9 @@ library(patchwork)
 
 #2. Read association results
 
-```{r}
+```{r read_ressults}
 # read UKBB-results
-ukbb = fread("results/assoc_res_sex_specific_and_combined_2022-04-20.tsv")
+ukbb = fread("../results/assoc_res_sex_specific_and_combined_2022-04-20.tsv")
 ukbb_sex_spcific = subset(ukbb,sex!="sex-combined")
 ukbb_sex_combined1 = subset(ukbb,sex=="sex-combined")
 ukbb_sex_combined2 = subset(ukbb,sex=="sex-combined")
@@ -29,7 +29,7 @@ head(ukbb2)
 rm(list=ls(pattern="ukbb_sex_"))
 
 # read CHARGE-results
-charge = fread("results/CHARGE_profile.csv")
+charge = fread("../results/CHARGE_profile.csv")
 charge[['age_cat']] = "CHARGE"
 charge[['sex']] = 'F'
 charge2 = charge
@@ -47,6 +47,7 @@ ukbb_charge = rbind(ukbb2,subset(charge,select=names(ukbb2)))
 
 rm(ukbb,ukbb2,charge,charge2)
 ```
+
 #3 Forest plot
 ```{r forest_plot_setup}
 cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
@@ -105,10 +106,10 @@ pM = subset(age_specific_coef,sex=="M") %>%
   ggtitle("UKBB Male + CHARGE")
 
 print(pF+pM)
-ggsave("results/age_specific_beta_F_M_wi_CHARGE_UKBB.png",
+ggsave("../results/age_specific_beta_F_M_wi_CHARGE_UKBB.png",
        width=12,height=6.5,units="in")
 
-pdf("results/age_specific_beta_F_M_wi_CHARGE_UKBB.pdf",
+pdf("../results/age_specific_beta_F_M_wi_CHARGE_UKBB.pdf",
        width=12,height=6.5)
 print(pF+pM)
 dev.off()
@@ -147,9 +148,9 @@ pM = subset(age_specific_coef,sex=="M" & age_cat %in% selelct_cat.levels) %>%
   ggtitle("UKBB Male + CHARGE")
 
 print(pF+pM)
-ggsave("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.png",
+ggsave("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.png",
        width=12,height=6.5,units="in")
-pdf("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.pdf",
+pdf("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.pdf",
        width=12,height=6.5)
 print(pF+pM)
 dev.off()
@@ -196,16 +197,16 @@ pM = dM %>%
   ggtitle("UKBB Male + CHARGE")
 
 print(pF+pM)
-ggsave("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.png",
+ggsave("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.png",
        width=12,height=6.5,units="in")
-pdf("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.pdf",
+pdf("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.pdf",
        width=12,height=6.5)
 print(pF+pM)
 dev.off()
 ```
 
 #4. Correlation plot
-```{r corrplot}
+```{r corrplot, fig.width=12, fig.height=5}
 assoc_table_wide <- dcast(age_specific_coef, roi+sex ~ age_cat, 
                           value.var=c("Estimate","SE"))
 assoc_table_wide2 <- dcast(age_specific_coef, roi ~ age_cat+sex, 
@@ -255,9 +256,9 @@ pFpM=ggcorrplot(corm[(dim_corm/2+1):dim_corm,(dim_corm/2):1],
         axis.text.y = element_blank(),
         axis.text.x = element_text(size=8)
         )
-
+  
 print(pF+pM+pFpM)
-ggsave('results/corr_plot_spearman_age_specific_slopes_wi_CHARGE_UKBB_all.png',
+ggsave('../results/corr_plot_spearman_age_specific_slopes_wi_CHARGE_UKBB_all.png',
        width=12,height=5,units='in')
 ```
 #5. Genotype
