@@ -1,4 +1,6 @@
-Associations between cortical thickness and WMH in UKBB and CHARGE
+Creating forest and correlation plots for the association profiles of
+associations between cortical thickness and WMH in UKBB and CHARGE
+cohorts
 ================
 
 \#1. Load packages
