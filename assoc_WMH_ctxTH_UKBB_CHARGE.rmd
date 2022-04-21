@@ -1,7 +1,6 @@
 ---
 title: "Associations between cortical thickness and WMH in UKBB and CHARGE"
 output:
-  html_notebook: default
   github_document: default
 ---
 
@@ -75,7 +74,7 @@ age_specific_coef = age_specific_coef %>% arrange(roi)
 ```
 
 ##3.1 Plot age_cat-by-WMH interaction estimates in all age bins and UKBB_All and CHARGE
-```{r, forestplot}
+```{r, forestplot, fig.width=12, fig.height=6}
 pF = subset(age_specific_coef,sex=="F") %>%
   ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
   geom_point(alpha=0.5) + 
@@ -116,7 +115,7 @@ dev.off()
 ```
 
 ##3.2 Plot age_cat-by-WMH interaction estimates in youngest and oldest age bins, UKBB_All, and CHARGE
-```{r, forestplot_old_young}
+```{r, forestplot_old_young, fig.width=12, fig.height=6}
 selelct_cat.levels = c("[45,53]", "(73,81]", "UKBB_all", "CHARGE")
 pF = subset(age_specific_coef,sex=="F" & age_cat %in% selelct_cat.levels) %>%
   ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
@@ -157,7 +156,7 @@ dev.off()
 ```
 
 ##3.3 Plot age_cat-by-WMH interaction estimates in youngest and oldest age bins, UKBB_All, and CHARGE (z-scored)
-```{r, forestplot_old_young_zscored}
+```{r, forestplot_old_young_zscored, fig.width=12,fig.height=6}
 selelct_cat.levels = c("[45,53]", "(73,81]", "UKBB_all", "CHARGE")
 dF= subset(age_specific_coef,sex=="F" & age_cat %in% selelct_cat.levels) 
 dF$zEstimate = dF %>% 
@@ -199,8 +198,7 @@ pM = dM %>%
 print(pF+pM)
 ggsave("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.png",
        width=12,height=6.5,units="in")
-pdf("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.pdf",
-       width=12,height=6.5)
+pdf("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.pdf",width=12,height=6.5)
 print(pF+pM)
 dev.off()
 ```
@@ -212,7 +210,7 @@ assoc_table_wide <- dcast(age_specific_coef, roi+sex ~ age_cat,
 assoc_table_wide2 <- dcast(age_specific_coef, roi ~ age_cat+sex, 
                           value.var=c("Estimate","SE"))
 
-head(assoc_table_wide2)
+head(assoc_table_wide2,2)
 cols_select = c(names(assoc_table_wide2)[str_detect(names(assoc_table_wide2),"Estimate_")& str_detect(names(assoc_table_wide2),"_F")],
                 names(assoc_table_wide2)[str_detect(names(assoc_table_wide2),"Estimate_")& str_detect(names(assoc_table_wide2),"_M")])
 
@@ -256,8 +254,8 @@ pFpM=ggcorrplot(corm[(dim_corm/2+1):dim_corm,(dim_corm/2):1],
         axis.text.y = element_blank(),
         axis.text.x = element_text(size=8)
         )
-  
-print(pF+pM+pFpM)
+pCorr = pF+pM+pFpM
+print(pCorr)
 ggsave('../results/corr_plot_spearman_age_specific_slopes_wi_CHARGE_UKBB_all.png',
        width=12,height=5,units='in')
 ```
