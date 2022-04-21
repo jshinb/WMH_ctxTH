@@ -1,0 +1,273 @@
+---
+title: "Associations between cortical thickness and WMH in UKBB and CHARGE"
+output:
+  html_notebook: default
+  github_document: default
+---
+
+#1. Load packages
+
+```{r load_packages}
+rm(list=ls())
+library(tidyverse)
+library(data.table)
+library(patchwork)
+```
+
+#2. Read association results
+
+```{r}
+# read UKBB-results
+ukbb = fread("results/assoc_res_sex_specific_and_combined_2022-04-20.tsv")
+ukbb_sex_spcific = subset(ukbb,sex!="sex-combined")
+ukbb_sex_combined1 = subset(ukbb,sex=="sex-combined")
+ukbb_sex_combined2 = subset(ukbb,sex=="sex-combined")
+ukbb_sex_combined1$sex = "F"
+ukbb_sex_combined2$sex = "M"
+ukbb2 = rbind(ukbb_sex_spcific,ukbb_sex_combined1,ukbb_sex_combined2)
+head(ukbb2)
+rm(list=ls(pattern="ukbb_sex_"))
+
+# read CHARGE-results
+charge = fread("results/CHARGE_profile.csv")
+charge[['age_cat']] = "CHARGE"
+charge[['sex']] = 'F'
+charge2 = charge
+charge2$sex = 'M'
+charge = rbind(charge,charge2)
+charge = charge %>% 
+  dplyr::rename(Estimate=beta_CHARGE,
+                SE=se_CHARGE,
+                P=p_CHARGE,
+                roi=vars) %>%
+  mutate(U95CI=Estimate+1.96*SE,L95CI=Estimate-1.96*SE,roi=str_remove_all(roi," "))
+
+# merge two sets of results
+ukbb_charge = rbind(ukbb2,subset(charge,select=names(ukbb2)))
+
+rm(ukbb,ukbb2,charge,charge2)
+```
+#3 Forest plot
+```{r forest_plot_setup}
+cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
+               "(69,71]", "(71,73]", "(73,81]","UKBB_all",'CHARGE')
+ukbb_charge = ukbb_charge %>% mutate(age_cat = factor(age_cat,levels=cat.levels))
+L = length(cat.levels)
+COLS <- c(colorRampPalette(c("black","orange"))(L-2),
+          "darkred","dodgerblue4")
+names(COLS) <- cat.levels
+
+roi.34.ordered = c("superiorparietal", "postcentral", 
+"precuneus", "cuneus", "caudalmiddlefrontal", "pericalcarine", 
+"paracentral", "precentral", "inferiorparietal", "transversetemporal", 
+"lateraloccipital", "superiorfrontal", "lingual", "bankssts", 
+"parstriangularis", "temporalpole", "entorhinal", "middletemporal", 
+"posteriorcingulate", "isthmuscingulate", "supramarginal", "frontalpole", 
+"rostralmiddlefrontal", "parsopercularis", "superiortemporal", 
+"parahippocampal", "inferiortemporal", "parsorbitalis", "fusiform", 
+"caudalanteriorcingulate", "lateralorbitofrontal", "medialorbitofrontal", 
+"rostralanteriorcingulate", "insula")
+ukbb_charge = ukbb_charge %>% mutate(roi = factor(roi,levels=roi.34.ordered))
+
+age_specific_coef = ukbb_charge
+age_specific_coef = age_specific_coef %>% arrange(roi)
+```
+
+##3.1 Plot age_cat-by-WMH interaction estimates in all age bins and UKBB_All and CHARGE
+```{r, forestplot}
+pF = subset(age_specific_coef,sex=="F") %>%
+  ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  xlab(NULL) + 
+  #ylab("Estimate (adjusted for imaging centre)")+ 
+  theme(legend.position = 'none')+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip() 
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  coord_flip() +
+  ylim((range(age_specific_coef$Estimate)))+#only when coord_flip
+  ggtitle("UKBB Female + CHARGE")
+# male
+pM = subset(age_specific_coef,sex=="M") %>%
+  ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip()
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  # ylab(NULL) + 
+  xlab(NULL) + 
+  coord_flip() +
+  ylim((range(age_specific_coef$Estimate)))+
+  ggtitle("UKBB Male + CHARGE")
+
+print(pF+pM)
+ggsave("results/age_specific_beta_F_M_wi_CHARGE_UKBB.png",
+       width=12,height=6.5,units="in")
+
+pdf("results/age_specific_beta_F_M_wi_CHARGE_UKBB.pdf",
+       width=12,height=6.5)
+print(pF+pM)
+dev.off()
+```
+
+##3.2 Plot age_cat-by-WMH interaction estimates in youngest and oldest age bins, UKBB_All, and CHARGE
+```{r, forestplot_old_young}
+selelct_cat.levels = c("[45,53]", "(73,81]", "UKBB_all", "CHARGE")
+pF = subset(age_specific_coef,sex=="F" & age_cat %in% selelct_cat.levels) %>%
+  ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  xlab(NULL) + 
+  #ylab("Estimate (adjusted for imaging centre)")+ 
+  theme(legend.position = 'none')+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip() 
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  coord_flip() +
+  ylim((range(age_specific_coef$Estimate)))+#only when coord_flip
+  ggtitle("UKBB Female + CHARGE")
+# male
+pM = subset(age_specific_coef,sex=="M" & age_cat %in% selelct_cat.levels) %>%
+  ggplot(aes(x=roi,y=Estimate,color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip()
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  # ylab(NULL) + 
+  xlab(NULL) + 
+  coord_flip() +
+  ylim((range(age_specific_coef$Estimate)))+
+  ggtitle("UKBB Male + CHARGE")
+
+print(pF+pM)
+ggsave("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.png",
+       width=12,height=6.5,units="in")
+pdf("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.pdf",
+       width=12,height=6.5)
+print(pF+pM)
+dev.off()
+```
+
+##3.3 Plot age_cat-by-WMH interaction estimates in youngest and oldest age bins, UKBB_All, and CHARGE (z-scored)
+```{r, forestplot_old_young_zscored}
+selelct_cat.levels = c("[45,53]", "(73,81]", "UKBB_all", "CHARGE")
+dF= subset(age_specific_coef,sex=="F" & age_cat %in% selelct_cat.levels) 
+dF$zEstimate = dF %>% 
+  group_by(age_cat) %>%
+  .$Estimate %>% scale()
+pF = dF %>%
+  ggplot(aes(x=roi,y=scale(Estimate),color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  xlab(NULL) + 
+  #ylab("Estimate (adjusted for imaging centre)")+ 
+  theme(legend.position = 'none')+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip() 
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  coord_flip() +
+  #ylim((range(age_specific_coef$Estimate)))+#only when coord_flip
+  ggtitle("UKBB Female + CHARGE")
+# male
+dM = subset(age_specific_coef,sex=="M" & age_cat %in% selelct_cat.levels)
+dM$zEstimate = dM %>% 
+  group_by(age_cat) %>%
+  .$Estimate %>% scale()
+pM = dM %>%
+  ggplot(aes(x=roi,y=scale(Estimate),color=age_cat,group=age_cat)) +
+  geom_point(alpha=0.5) + 
+  geom_path(alpha=0.5) + 
+  scale_color_manual(values=COLS) + 
+  geom_hline(yintercept = 0)+
+  # theme(axis.text.x = element_text(angle = 90,hjust =1,vjust=0.5)) + #when not coord_flip()
+  # coord_cartesian(ylim=(range(age_specific_coef$Estimate))) + #when not coord_flip()
+  # ylab(NULL) + 
+  xlab(NULL) + 
+  coord_flip() +
+  #ylim((range(age_specific_coef$Estimate)))+
+  ggtitle("UKBB Male + CHARGE")
+
+print(pF+pM)
+ggsave("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.png",
+       width=12,height=6.5,units="in")
+pdf("results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE_zscored.pdf",
+       width=12,height=6.5)
+print(pF+pM)
+dev.off()
+```
+
+#4. Correlation plot
+```{r corrplot}
+assoc_table_wide <- dcast(age_specific_coef, roi+sex ~ age_cat, 
+                          value.var=c("Estimate","SE"))
+assoc_table_wide2 <- dcast(age_specific_coef, roi ~ age_cat+sex, 
+                          value.var=c("Estimate","SE"))
+
+head(assoc_table_wide2)
+cols_select = c(names(assoc_table_wide2)[str_detect(names(assoc_table_wide2),"Estimate_")& str_detect(names(assoc_table_wide2),"_F")],
+                names(assoc_table_wide2)[str_detect(names(assoc_table_wide2),"Estimate_")& str_detect(names(assoc_table_wide2),"_M")])
+
+library(corrplot)
+corm = cor(subset(assoc_table_wide2,select=cols_select),method = 's')
+rownames(corm) <- colnames(corm) <- str_remove(cols_select,"Estimate_")
+rownames(corm) <- colnames(corm) <- str_split(rownames(corm),"_",simplify = T)[,1]
+
+#ggcorrplot: https://github.com/kassambara/ggcorrplot--------------------------
+library(ggcorrplot)
+dim_corm = nrow(corm)
+pF=ggcorrplot(corm[1:(dim_corm/2),(dim_corm/2):1],
+              outline.col = "white",lab = TRUE,lab_size=2.5)+
+  ggtitle("Female + whole UKBB + CHARGE") +
+  theme(text = element_text(size = 10),
+        legend.position = 'none',
+        axis.text.y = element_text(size=8),
+        # axis.text.x = element_blank()
+        # axis.text.y = element_blank(),
+        axis.text.x = element_text(size=8)
+  )
+pM=ggcorrplot(corm[(dim_corm/2+1):dim_corm,dim_corm:(dim_corm/2+1)],
+              outline.col = "white",lab = TRUE,lab_size=2.5)+
+  ggtitle("Male + whole UKBB + CHARGE")+
+  theme(text = element_text(size = 11),
+        legend.position = 'none',
+        # axis.text.y = element_text(size=8),
+        # axis.text.x = element_blank()
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size=8)
+  )
+pFpM=ggcorrplot(corm[(dim_corm/2+1):dim_corm,(dim_corm/2):1],
+                outline.col = "white",
+                lab = TRUE,lab_size=2.5)+
+  ggtitle("Female (rows) vs. Male (columns)") +
+  theme(text = element_text(size = 11),
+             legend.title=element_text(size=8), 
+             legend.text=element_text(size=8),
+        # axis.text.y = element_text(size=8),
+        # axis.text.x = element_blank()
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size=8)
+        )
+
+print(pF+pM+pFpM)
+ggsave('results/corr_plot_spearman_age_specific_slopes_wi_CHARGE_UKBB_all.png',
+       width=12,height=5,units='in')
+```
+#5. Genotype
+```{r rs242557_geno}
+```
+
+#6. For VH:
+```{r data_for_VH}
+to_write=subset(ukbb_charge,(age_cat=="UKBB_all" & sex=="F"), select=c(roi,Estimate))
+write_tsv(to_write,"~/OneDrive - SickKids/4752955/profile_WMH_ctxTH_UKBB_all_assoc_2022-04-19.tsv")
+```
+
+
