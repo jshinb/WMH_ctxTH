@@ -16,8 +16,7 @@ library(patchwork)
 # read UKBB-results
 ukbb = fread("../results/assoc_res_sex_specific_and_combined_2022-04-20.tsv")
 ukbb_sex_spcific = subset(ukbb,sex!="sex-combined")
-ukbb_sex_combined1 = subset(ukbb,sex=="sex-combined")
-ukbb_sex_combined2 = subset(ukbb,sex=="sex-combined")
+ukbb_sex_combined1 <- ukbb_sex_combined2 <- subset(ukbb,sex=="sex-combined")
 ukbb_sex_combined1$sex = "F"
 ukbb_sex_combined2$sex = "M"
 ukbb2 = rbind(ukbb_sex_spcific,ukbb_sex_combined1,ukbb_sex_combined2)
@@ -67,15 +66,15 @@ COLS <- c(colorRampPalette(c("black","orange"))(L-2),
 names(COLS) <- cat.levels
 
 roi.34.ordered = c("superiorparietal", "postcentral", 
-"precuneus", "cuneus", "caudalmiddlefrontal", "pericalcarine", 
-"paracentral", "precentral", "inferiorparietal", "transversetemporal", 
-"lateraloccipital", "superiorfrontal", "lingual", "bankssts", 
-"parstriangularis", "temporalpole", "entorhinal", "middletemporal", 
-"posteriorcingulate", "isthmuscingulate", "supramarginal", "frontalpole", 
-"rostralmiddlefrontal", "parsopercularis", "superiortemporal", 
-"parahippocampal", "inferiortemporal", "parsorbitalis", "fusiform", 
-"caudalanteriorcingulate", "lateralorbitofrontal", "medialorbitofrontal", 
-"rostralanteriorcingulate", "insula")
+                   "precuneus", "cuneus", "caudalmiddlefrontal", "pericalcarine", 
+                   "paracentral", "precentral", "inferiorparietal", "transversetemporal", 
+                   "lateraloccipital", "superiorfrontal", "lingual", "bankssts", 
+                   "parstriangularis", "temporalpole", "entorhinal", "middletemporal", 
+                   "posteriorcingulate", "isthmuscingulate", "supramarginal", "frontalpole", 
+                   "rostralmiddlefrontal", "parsopercularis", "superiortemporal", 
+                   "parahippocampal", "inferiortemporal", "parsorbitalis", "fusiform", 
+                   "caudalanteriorcingulate", "lateralorbitofrontal", "medialorbitofrontal", 
+                   "rostralanteriorcingulate", "insula")
 ukbb_charge = ukbb_charge %>% mutate(roi = factor(roi,levels=roi.34.ordered))
 
 age_specific_coef = ukbb_charge
@@ -125,7 +124,7 @@ ggsave("../results/age_specific_beta_F_M_wi_CHARGE_UKBB.png",
        width=12,height=6.5,units="in")
 
 pdf("../results/age_specific_beta_F_M_wi_CHARGE_UKBB.pdf",
-       width=12,height=6.5)
+    width=12,height=6.5)
 print(pF+pM)
 dev.off()
 ```
@@ -176,7 +175,7 @@ print(pF+pM)
 ggsave("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.png",
        width=12,height=6.5,units="in")
 pdf("../results/age_specific_beta_F_M_wi_old_young_UKBB_CHARGE.pdf",
-       width=12,height=6.5)
+    width=12,height=6.5)
 print(pF+pM)
 dev.off()
 ```
@@ -248,7 +247,7 @@ dev.off()
 assoc_table_wide <- dcast(age_specific_coef, roi+sex ~ age_cat, 
                           value.var=c("Estimate","SE"))
 assoc_table_wide2 <- dcast(age_specific_coef, roi ~ age_cat+sex, 
-                          value.var=c("Estimate","SE"))
+                           value.var=c("Estimate","SE"))
 
 head(assoc_table_wide2,2)
 ```
@@ -329,13 +328,13 @@ pFpM=ggcorrplot(corm[(dim_corm/2+1):dim_corm,(dim_corm/2):1],
                 lab = TRUE,lab_size=2.5)+
   ggtitle("Female (rows) vs. Male (columns)") +
   theme(text = element_text(size = 11),
-             legend.title=element_text(size=8), 
-             legend.text=element_text(size=8),
+        legend.title=element_text(size=8), 
+        legend.text=element_text(size=8),
         # axis.text.y = element_text(size=8),
         # axis.text.x = element_blank()
         axis.text.y = element_blank(),
         axis.text.x = element_text(size=8)
-        )
+  )
 pCorr = pF+pM+pFpM
 print(pCorr)
 ```
