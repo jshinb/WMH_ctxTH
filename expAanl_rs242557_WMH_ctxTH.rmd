@@ -158,8 +158,8 @@ lm.geno2.F = lm(y.resid~rs242557_chr17_G_A,data=d_roii.F, subset=age_cat2==abin2
 lm.geno2.M = lm(y.resid~rs242557_chr17_G_A,data=d_roii.M, subset=age_cat2==abin2)
 ```
 
-#6. Brain volume: age vs. brain-volume in age-bins
-```{r brain_volume, fig.width=10.5, fig.height=4.5}
+#6. Brain volume: brain-volume and ICV
+```{r brain_volume_icv, fig.width=10.5, fig.height=4.5}
 names(covdat)
 covdat = covdat %>% 
   mutate(ICV_cm3=ICV/10^3,BrainVolume_cm3=BrainVolume/10^3) %>% 
@@ -171,29 +171,61 @@ ICV.boxplot = covdat %>% ggplot(aes(y=ICV.no_outliers,color=sex)) +
 BV.boxplot = covdat %>% ggplot(aes(y=BrainVolume.no_outliers,color=sex)) + 
   geom_boxplot()
 print(ICV.boxplot+BV.boxplot)
-
-cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
-               "(69,71]", "(71,73]", "(73,81]")
-covdat = covdat %>% mutate(age_cat2 = factor(age_cat2,levels=cat.levels))
-L = length(cat.levels)
-COLS <- colorRampPalette(c("black","orange"))(L)
-names(COLS) <- cat.levels
-
-getPlot = function(roi,covdat,avg.th){
+```
+#7. 
+```{r BrainVolume_ctxTH, fig.width=10.5, fig.height=4}
+getPlot.BrainVolume = function(roi,covdat,avg.th){
+  cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
+                 "(69,71]", "(71,73]", "(73,81]")
+  covdat = covdat %>% mutate(age_cat2 = factor(age_cat2,levels=cat.levels))
+  L = length(cat.levels)
+  COLS <- colorRampPalette(c("black","orange"))(L)
+  names(COLS) <- cat.levels
+  
   yname=roi
   mridat.roi = merge(covdat,subset(avg.th,select=c('eid',yname)))
   names(mridat.roi)[names(mridat.roi)==yname] <- 'y'
   p = mridat.roi %>% ggplot(aes(x=BrainVolume.no_outliers,y=y,color=age_cat2))+
-  scale_color_manual(values=COLS) + 
-  facet_grid(cols=vars(sex)) +
-  # geom_point(alpha=0.5) + 
-  ylab(yname)+
-  geom_smooth(method="gam", formula = y ~ s(x, bs = "cs", k=4),alpha=0.5)
+    scale_color_manual(values=COLS) + 
+    facet_grid(cols=vars(sex)) +
+    # geom_point(alpha=0.5) + 
+    ylab(yname)+
+    geom_smooth(method="gam", formula = y ~ s(x, bs = "cs", k=4),alpha=0.5)
   p
 }
-p.insula = getPlot('insula',covdat,avg.th) + theme(legend.position = 'n')
-p.superiorparietal = getPlot('superiorparietal',covdat,avg.th)
+p.insula = getPlot.BrainVolume('insula',covdat,avg.th) + theme(legend.position = 'n')
+p.superiorparietal = getPlot.BrainVolume('superiorparietal',covdat,avg.th)
 p_all = p.insula + p.superiorparietal
 p_all +  plot_layout(guides = 'collect')
+
 ```
+#8. ICV
+```{r ICV_ctxTH, fig.width=10.5, fig.height=4}
+getPlot.ICV = function(roi,covdat,avg.th){
+  cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
+                 "(69,71]", "(71,73]", "(73,81]")
+  covdat = covdat %>% mutate(age_cat2 = factor(age_cat2,levels=cat.levels))
+  L = length(cat.levels)
+  COLS <- colorRampPalette(c("black","orange"))(L)
+  names(COLS) <- cat.levels
+  
+  yname=roi
+  mridat.roi = merge(covdat,subset(avg.th,select=c('eid',yname)))
+  names(mridat.roi)[names(mridat.roi)==yname] <- 'y'
+  p = mridat.roi %>% ggplot(aes(x=ICV.no_outliers,y=y,color=age_cat2))+
+    scale_color_manual(values=COLS) + 
+    facet_grid(cols=vars(sex)) +
+    # geom_point(alpha=0.5) + 
+    ylab(yname)+
+    geom_smooth(method="gam", formula = y ~ s(x, bs = "cs", k=4),alpha=0.5)
+  p
+}
+p.insula = getPlot.ICV('insula',covdat,avg.th) + theme(legend.position = 'n')
+p.superiorparietal = getPlot.ICV('superiorparietal',covdat,avg.th)
+p_all = p.insula + p.superiorparietal
+p_all +  plot_layout(guides = 'collect')
+
+```
+
+
 
