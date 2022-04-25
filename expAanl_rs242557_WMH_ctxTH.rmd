@@ -1,0 +1,199 @@
+---
+  title: "Exploratory analysis of WMH, cortical thickness and rs242557"
+  output: 
+    github_document: default
+---
+
+# 1. Load packages
+
+```{r load_packages, message=F}
+rm(list=ls());gc()
+library(tidyverse)
+library(data.table)
+library(stringr)
+library(patchwork)
+library(psych)
+source("../scripts/add_rs242577.R")
+source("../scripts/getFit_interaction_sex_combined.R")
+source("../scripts/getFit_interaction_geno.R")
+source("../scripts/getFit_interaction.R")
+```
+
+# 2. Read data files
+
+```{r read_data, message=FALSE}
+# read and merge data files
+d1 = fread('../data/hardcalled_genotypes_for_MAPT_SNP_ctxTH_WMH_for_tomas_2022-04.19.tsv') %>% dplyr::rename(eid=IID)
+d2 = fread('../data/anal_dat_ctxTH_WMH_age_2022-04-25.txt')
+d = merge(d1,d2)#n=31,082 (participants with genotype information)
+rm(d1,d2); gc()
+```
+
+# 3. Wrangle data
+
+```{r wrangle_data, echo=FALSE}
+# extract covariates and 
+covdat = subset(d,select=c(eid,age1,sex,assessment_centre,WMH,ICV,BrainVolume)) %>%
+  mutate(logWMH = log10(1+WMH),
+         rntWMH = GenABEL::rntransform(WMH))
+
+# add centered age, age^2 variables, and age-bins
+b2 = quantile(covdat$age1,probs = seq(from=0,to=1,length.out=11))
+covdat = covdat %>%
+  mutate(age.c = scale(age1)[,1]) %>%
+  mutate(age.c2 = age.c^2,sex=ifelse(sex==0,"F","M")) %>%
+  mutate(age_cat = cut(age1,breaks=10)) %>% #equally-distanced
+  mutate(age_cat2 = cut(age1,breaks=b2,include.lowest=T))
+head(covdat)
+
+# create un-weighted and weighted avg ctxTH columns (across left, right hemispheres)
+r1 = which(names(d) == "lh_bankssts_area")
+r34 = which(names(d) == "lh_insula_area")
+print(r34 - r1+1)
+roi.34 = names(d)[r1:r34]
+roi.34 = str_split(roi.34,"_",simplify = T)[,2]
+cat(roi.34,sep="\n")
+# calculation begins here
+avg.th <- wt.avg.th <- subset(d,select=eid)
+for (i in 1:34){
+  roii = roi.34[i]
+  th_var = names(d)[str_detect(names(d),roii) & str_detect(names(d),"thickness")]
+  sa_var = names(d)[str_detect(names(d),roii) & str_detect(names(d),"area")]
+  sa = apply(subset(d,select=sa_var),1,sum,na.rm=F)
+  wt = subset(d,select=sa_var)/sa
+  
+  avg.th = cbind(avg.th,apply(subset(d,select=th_var),1,mean,na.rm=F))
+  wt.avg.th = cbind(wt.avg.th,apply(subset(d,select=th_var)*wt,1,sum,na.rm=F))
+  rm(roii)
+}
+colnames(avg.th)[-1] <- colnames(wt.avg.th)[-1] <- roi.34
+avg.th = data.table(avg.th)
+wt.avg.th = data.table(wt.avg.th)
+```
+# 4. Associtions without the SNP
+```{r assoc_wi_SNP, echo=FALSE}
+assoc_results <- assoc_results_sex_combined <- c()
+for(i in 1:34){
+  x=roi.34[i]
+  tmp.x = rbind(getFit_interaction(data=avg.th,roii=x,sexi = "F"),
+                getFit_interaction(data=avg.th,roii=x,sexi = "M"))
+  tmp.x_all = getFit_interaction_sex_combined(covdat = covdat,data=avg.th,roii=x)
+  assoc_results = rbind(assoc_results,tmp.x)
+  assoc_results_sex_combined = rbind(assoc_results_sex_combined,tmp.x_all)
+  rm(x,tmp.x,tmp.x_all)
+}
+assoc_results_sex_combined = data.frame(assoc_results_sex_combined)
+rownames(assoc_results_sex_combined) = NULL
+names(assoc_results_sex_combined)[2:4] = c('SE',"t","P")
+assoc_results_sex_combined[,-c(5:6)] = apply(assoc_results_sex_combined[,-c(5:6)],2,as.numeric)
+assoc_results_sex_combined$age_cat = "UKBB_all"
+
+assoc_results$P <- NA
+assoc_results = rbind(assoc_results,
+                    subset(assoc_results_sex_combined,select=names(assoc_results)))
+assoc_results = assoc_results %>%
+  mutate(U95CI=Estimate+SE*1.96,L95CI=Estimate-SE*1.96)
+
+write_tsv(assoc_results,
+          file.path('../results',
+                    paste('assoc_res_sex_specific_and_combined_',Sys.Date(),'.tsv',sep='')))
+```
+
+#5. Explore: cortical thickness vs. genotypes, adjusting for assessment centre, age, age2 and sex
+
+  - The SNP appears not associated with insular thickness - no main effect -> *no interaction*.
+
+```{r explore, echo=TRUE}
+d_anal = merge(subset(d,select=c(eid,rs242557_chr17_G_A)),
+               covdat)
+i=34
+roii = roi.34[i];print(roii)
+d_roii = merge(d_anal,subset(avg.th,select=c('eid',roii)))
+names(d_roii)[names(d_roii)==roii] <- 'y'
+d_roii = d_roii %>% mutate(y = ifelse(abs(scale(y)[,1]) > 4, NA, y))
+
+# combined:
+lm0 = lm(y~(assessment_centre)*sex, data=d_roii,
+         na.action = na.exclude)
+d_roii[['y.resid']] = resid(lm0)+coef(lm0)[1]
+d_roii %>% ggplot(aes(x=rs242557_chr17_G_A,y=y.resid,fill=sex)) + 
+  geom_boxplot()+
+  ggtitle(roii) + 
+  ylab('adjusted cortical thickness')
+
+lm.geno = lm(y.resid~rs242557_chr17_G_A,data=d_roii)
+summary(lm.geno)
+
+# Female
+d_roii.F = subset(d_roii,sex=="F")
+lm0 = lm(y~(age.c + age.c2 + assessment_centre), 
+         data=d_roii.F, na.action = na.exclude)
+d_roii.F[['y.resid']] = resid(lm0)+coef(lm0)[1]
+lm.geno.F = lm(y.resid~rs242557_chr17_G_A,data=d_roii.F)
+sm.F = summary(lm.geno.F)
+
+# Male
+d_roii.M = subset(d_roii,sex=="M")
+lm0 = lm(y~(age.c + age.c2 + assessment_centre), 
+         data=d_roii.M, na.action = na.exclude)
+d_roii.M[['y.resid']] = resid(lm0)+coef(lm0)[1]
+lm.geno.M = lm(y.resid~rs242557_chr17_G_A,data=d_roii.M)
+sm.M = summary(lm.geno.M)
+
+d_roii.FM = rbind(d_roii.F,d_roii.M)
+
+# boxplot
+box.A = d_roii.FM %>% ggplot(aes(x=age_cat2,y=y.resid,
+                                fill=rs242557_chr17_G_A)) + 
+  geom_boxplot(alpha=0.5)+
+  ggtitle(roii) + 
+  ylab('adjusted cortical thickness')
+box.A
+#  
+abin1='[45,53]'
+abin2='(73,81]'
+lm.geno.F = lm(y.resid~rs242557_chr17_G_A,data=d_roii.F, subset=age_cat2==abin1)
+lm.geno.M = lm(y.resid~rs242557_chr17_G_A,data=d_roii.M, subset=age_cat2==abin1)
+lm.geno2.F = lm(y.resid~rs242557_chr17_G_A,data=d_roii.F, subset=age_cat2==abin2)
+lm.geno2.M = lm(y.resid~rs242557_chr17_G_A,data=d_roii.M, subset=age_cat2==abin2)
+```
+
+#6. Brain volume: age vs. brain-volume in age-bins
+```{r brain_volume, fig.width=10.5, fig.height=4.5}
+names(covdat)
+covdat = covdat %>% 
+  mutate(ICV_cm3=ICV/10^3,BrainVolume_cm3=BrainVolume/10^3) %>% 
+  mutate(ICV.no_outliers=ifelse(abs(scale(ICV_cm3)[,1])>4,NA,ICV_cm3),
+         BrainVolume.no_outliers=ifelse(abs(scale(BrainVolume_cm3)[,1])>4,NA,BrainVolume_cm3))
+
+ICV.boxplot = covdat %>% ggplot(aes(y=ICV.no_outliers,color=sex)) +
+  geom_boxplot() + theme(legend.position = 'none')
+BV.boxplot = covdat %>% ggplot(aes(y=BrainVolume.no_outliers,color=sex)) + 
+  geom_boxplot()
+print(ICV.boxplot+BV.boxplot)
+
+cat.levels = c("[45,53]", "(53,56]", "(56,59]", "(59,62]", "(62,64]", "(64,67]", "(67,69]", 
+               "(69,71]", "(71,73]", "(73,81]")
+covdat = covdat %>% mutate(age_cat2 = factor(age_cat2,levels=cat.levels))
+L = length(cat.levels)
+COLS <- colorRampPalette(c("black","orange"))(L)
+names(COLS) <- cat.levels
+
+getPlot = function(roi,covdat,avg.th){
+  yname=roi
+  mridat.roi = merge(covdat,subset(avg.th,select=c('eid',yname)))
+  names(mridat.roi)[names(mridat.roi)==yname] <- 'y'
+  p = mridat.roi %>% ggplot(aes(x=BrainVolume.no_outliers,y=y,color=age_cat2))+
+  scale_color_manual(values=COLS) + 
+  facet_grid(cols=vars(sex)) +
+  # geom_point(alpha=0.5) + 
+  ylab(yname)+
+  geom_smooth(method="gam", formula = y ~ s(x, bs = "cs", k=4),alpha=0.5)
+  p
+}
+p.insula = getPlot('insula',covdat,avg.th) + theme(legend.position = 'n')
+p.superiorparietal = getPlot('superiorparietal',covdat,avg.th)
+p_all = p.insula + p.superiorparietal
+p_all +  plot_layout(guides = 'collect')
+```
+
